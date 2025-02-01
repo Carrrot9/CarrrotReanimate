@@ -1,0 +1,969 @@
+-- Cached Globals and Functions
+local game         = game
+local gethui       = gethui
+local cloneref     = cloneref
+local pcall        = pcall
+local twait        = task.wait  -- using task.wait as twait
+local spawn        = spawn
+local print        = print
+local getgenv      = getgenv
+local Instance     = Instance
+local math         = math
+local os           = os
+local debug        = debug
+local tick         = tick
+local xpcall       = xpcall
+
+-- Cached Services
+local Players      = game:GetService("Players")
+local CoreGui      = game:GetService("CoreGui")
+local StarterGui   = game:GetService("StarterGui")
+local TweenService = game:GetService("TweenService")
+local RunService   = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Workspace    = game:GetService("Workspace") or game.Workspace
+
+-- Cached Constructors & Functions
+local Color3_new      = Color3.new
+local Color3_fromRGB  = Color3.fromRGB
+local UDim2_new       = UDim2.new
+local UDim_new        = UDim.new
+local Rect_new        = Rect.new
+local Vector3_new     = Vector3.new
+local Vector2_new     = Vector2.new
+local CFrame_new      = CFrame.new
+local CFrame_Angles   = CFrame.Angles
+local math_sin        = math.sin
+local math_rad        = math.rad
+
+--------------------------------------------------------------------------------
+-- Utility: Determine the proper GUI container
+--------------------------------------------------------------------------------
+local function getworkinggui()
+    if gethui then
+        return gethui()
+    end
+    if cloneref then
+        pcall(function()
+            return cloneref(CoreGui)
+        end)
+    end
+    pcall(function()
+        return CoreGui
+    end)
+    return Players.LocalPlayer:FindFirstChildWhichIsA("PlayerGui")
+end
+
+--------------------------------------------------------------------------------
+-- MASTER SCRIPT: MrY7zz's reanimate GUI + Reanim + Fling + Click Kill
+--------------------------------------------------------------------------------
+
+local isFlinging = false
+
+-- [1] LOCAL UTILITY: Show Notification
+local function showNotification(message, duration)
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "MrY7zz's reanimate"
+    screenGui.Parent = getworkinggui()
+
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Parent = screenGui
+    textLabel.Size = UDim2_new(0.3, 0, 0.1, 0)
+    textLabel.Position = UDim2_new(0.35, 0, 0, 0)
+    textLabel.BackgroundColor3 = Color3_new(0, 0, 0)
+    textLabel.BackgroundTransparency = 0.5
+    textLabel.TextColor3 = Color3_new(1, 1, 1)
+    textLabel.TextSize = 30
+    textLabel.Font = Enum.Font.SourceSansBold
+    textLabel.Text = message
+    textLabel.Visible = true
+
+    local fadeIn = TweenService:Create(
+        textLabel,
+        TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut),
+        {BackgroundTransparency = 0.1, TextTransparency = 0}
+    )
+    fadeIn:Play()
+
+    twait(duration or 2)
+
+    local fadeOut = TweenService:Create(
+        textLabel,
+        TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut),
+        {BackgroundTransparency = 1, TextTransparency = 1}
+    )
+    fadeOut:Play()
+
+    fadeOut.Completed:Wait()
+    screenGui:Destroy()
+end
+
+-- [2] CHECK IF ALREADY LOADED
+if getgenv and getgenv().MrY7zzsReanimateLoaded then
+    showNotification("Already loaded!", 3)
+    return
+elseif getgenv then
+    getgenv().MrY7zzsReanimateLoaded = true
+end
+
+-- [3] CREATE GUI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "MrY7zz's reanimate"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = getworkinggui()
+
+-- MAIN FRAME
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2_new(0, 300, 0, 400)
+mainFrame.Position = UDim2_new(0.5, -150, 0.5, -200)
+mainFrame.BackgroundColor3 = Color3_fromRGB(40, 40, 40)
+mainFrame.BorderSizePixel = 0
+mainFrame.ZIndex = 2
+mainFrame.Parent = screenGui
+
+-- DROP SHADOW
+local shadow = Instance.new("ImageLabel")
+shadow.Name = "DropShadow"
+shadow.AnchorPoint = Vector2_new(0.5, 0.5)
+shadow.Position = UDim2_new(0.5, 0, 0.5, 8)
+shadow.Size = UDim2_new(1, 20, 1, 20)
+shadow.ZIndex = 1
+shadow.Image = "rbxassetid://1316045217"
+shadow.ImageColor3 = Color3_fromRGB(0, 0, 0)
+shadow.ImageTransparency = 0.5
+shadow.ScaleType = Enum.ScaleType.Slice
+shadow.SliceCenter = Rect_new(10, 10, 118, 118)
+shadow.BackgroundTransparency = 1
+shadow.Parent = mainFrame
+
+-- MAIN BACKGROUND GRADIENT (BLUE)
+local backgroundGradient = Instance.new("UIGradient")
+backgroundGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3_fromRGB(80, 80, 180)),   -- deep blue
+    ColorSequenceKeypoint.new(1, Color3_fromRGB(100, 100, 255))  -- lighter blue
+})
+backgroundGradient.Rotation = 90
+backgroundGradient.Parent = mainFrame
+
+-- CORNER + STROKE
+local frameCorner = Instance.new("UICorner")
+frameCorner.CornerRadius = UDim_new(0, 10)
+frameCorner.Parent = mainFrame
+
+local frameStroke = Instance.new("UIStroke")
+frameStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+frameStroke.Color = Color3_fromRGB(235, 235, 235)
+frameStroke.Thickness = 1
+frameStroke.Transparency = 0.8
+frameStroke.Parent = mainFrame
+
+-- TITLE LABEL
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2_new(1, 0, 0, 50)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "MrY7zz's reanimate"
+titleLabel.TextColor3 = Color3_fromRGB(255, 255, 255)
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextSize = 20
+titleLabel.ZIndex = 999999
+titleLabel.Parent = mainFrame
+
+local titleStroke = Instance.new("UIStroke")
+titleStroke.Color = Color3_fromRGB(0, 0, 0)
+titleStroke.Thickness = 1
+titleStroke.Transparency = 0.6
+titleStroke.Parent = titleLabel
+
+-- [4] TOGGLE STATES
+local toggleStates = {
+    ["Metamethod Optimizations"] = false,
+    ["Permadeath"]              = false,
+    ["Advanced Physics"]         = false,
+    ["Click Kill"]               = false,
+    ["Spoof Full Health"]        = false,
+    ["Tools on fake character"]  = false,
+    ["Allow Sitting"]            = false,
+    ["Click Fling"]              = false,
+}
+
+-- Tooltip functionality for toggles
+local currentTooltip = nil
+local toggleDescriptions = {
+    ["Metamethod Optimizations"] = "Optimize property indexing using metamethods for performance.",
+    ["Permadeath"] = "Prevents reanimation on death.",
+    ["Advanced Physics"] = "Enables advanced physics calculations for the reanimated character.",
+    ["Click Kill"] = "Hold Ctrl and click to instantly kill a target.",
+    ["Spoof Full Health"] = "Makes your health appear full to others.",
+    ["Tools on fake character"] = "Allows tools to be used on the reanimated (fake) character.",
+    ["Allow Sitting"] = "Enables your character to sit.",
+    ["Click Fling"] = "Hold Ctrl and click to fling a target away.",
+}
+
+local function showTooltip(text, parentButton)
+    if currentTooltip then currentTooltip:Destroy() end
+    currentTooltip = Instance.new("TextLabel")
+    currentTooltip.BackgroundColor3 = Color3_fromRGB(0, 0, 0)
+    currentTooltip.BackgroundTransparency = 0.5
+    currentTooltip.TextColor3 = Color3_new(1, 1, 1)
+    currentTooltip.Font = Enum.Font.Gotham
+    currentTooltip.TextSize = 14
+    currentTooltip.Text = text
+    currentTooltip.Parent = screenGui
+    currentTooltip.ZIndex = 300
+    -- Position tooltip to the right of the button
+    local absPos = parentButton.AbsolutePosition
+    local absSize = parentButton.AbsoluteSize
+    currentTooltip.Position = UDim2_new(0, absPos.X + absSize.X + 5, 0, absPos.Y)
+end
+
+local function hideTooltip()
+    if currentTooltip then
+        currentTooltip:Destroy()
+        currentTooltip = nil
+    end
+end
+
+-- [5] CLICK KILL & FLING LOGIC
+local clickKillConnection
+local clickFlingConnection
+
+local function killTarget(target)
+    local localPlayer = Players.LocalPlayer
+    local humanoid = target:FindFirstChildOfClass("Humanoid")
+    if humanoid and target.Name ~= localPlayer.Name then
+        humanoid.BreakJointsOnDeath = true
+        target:BreakJoints()
+        humanoid.Health = 0
+    end
+end
+
+local function enableClickKill()
+    if clickKillConnection then return end
+    local localPlayer = Players.LocalPlayer
+    clickKillConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 and UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+            local mouse = localPlayer:GetMouse()
+            local target = mouse.Target
+            if target then
+                if setsimulationradius then
+                    setsimulationradius(1e9, 1e9)
+                end
+                killTarget(target.Parent or target)
+            end
+        end
+    end)
+end
+
+local function disableClickKill()
+    if clickKillConnection then
+        clickKillConnection:Disconnect()
+        clickKillConnection = nil
+    end
+end
+
+local function flingTargetWithCharacter(targetInstance, flingerCharacter)
+    isFlinging = true  -- Turn ON fling mode so the reanimation stops “pulling” you back
+    local localPlayer = Players.LocalPlayer
+
+    local characterMAIN = flingerCharacter or localPlayer.Character
+    local Humanoid = characterMAIN and characterMAIN:FindFirstChildOfClass("Humanoid")
+    local RootPart = Humanoid and Humanoid.RootPart
+
+    local TPlayer = Players:FindFirstChild(targetInstance.Parent.Name)
+        or Players:FindFirstChild(targetInstance.Name)
+        or Players:FindFirstChild(targetInstance.Parent.Parent.Name)
+        or Players:FindFirstChild(targetInstance.Parent.Parent.Parent.Name)
+    if not TPlayer then
+        StarterGui:SetCore("SendNotification", {
+            Title = "Error Occurred",
+            Text = "Username Invalid or Not Found",
+            Duration = 5
+        })
+        return
+    end
+
+    local TCharacter = TPlayer.Character
+    local THumanoid = TCharacter and TCharacter:FindFirstChildOfClass("Humanoid")
+    local TRootPart = THumanoid and THumanoid.RootPart
+
+    if not (characterMAIN and Humanoid and RootPart and TCharacter and THumanoid and TRootPart) then
+        StarterGui:SetCore("SendNotification", {
+            Title = "Error Occurred",
+            Text = "Invalid Target or Character",
+            Duration = 5
+        })
+        return
+    end
+
+    local OriginalPosition = RootPart.CFrame
+
+    local function FPos(BasePart, Pos, Ang)
+        RootPart.CFrame = CFrame_new(BasePart.Position) * Pos * Ang
+        characterMAIN:SetPrimaryPartCFrame(CFrame_new(BasePart.Position) * Pos * Ang)
+        RootPart.Velocity = Vector3_new(9e7, 9e7 * 10, 9e7)
+        RootPart.RotVelocity = Vector3_new(9e8, 9e8, 9e8)
+    end
+
+    local function SFBasePart(BasePart)
+        local TimeToWait = 2
+        local startTime = tick()
+        local Angle = 0
+        repeat
+            if RootPart and THumanoid and BasePart and BasePart.Parent == TCharacter then
+                if BasePart.Velocity.Magnitude < 50 then
+                    Angle = Angle + 100
+                    FPos(BasePart,
+                        CFrame_new(0, 1.5, 0) + THumanoid.MoveDirection*(BasePart.Velocity.Magnitude/1.25),
+                        CFrame_Angles(math_rad(Angle), 0, 0)
+                    )
+                    twait()
+
+                    FPos(BasePart,
+                        CFrame_new(0, -1.5, 0) + THumanoid.MoveDirection*(BasePart.Velocity.Magnitude/1.25),
+                        CFrame_Angles(math_rad(Angle), 0, 0)
+                    )
+                    twait()
+                end
+            else
+                break
+            end
+        until BasePart.Velocity.Magnitude > 500
+            or THumanoid.Sit
+            or Humanoid.Health <= 0
+            or tick() > startTime + TimeToWait
+    end
+
+    Workspace.FallenPartsDestroyHeight = 0/0
+
+    local BV = Instance.new("BodyVelocity")
+    BV.Name = "EpixVel"
+    BV.Parent = RootPart
+    BV.Velocity = Vector3_new(9e8, 9e8, 9e8)
+    BV.MaxForce = Vector3_new(math.huge, math.huge, math.huge)
+
+    Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
+    if TRootPart then
+        SFBasePart(TRootPart)
+    end
+
+    BV:Destroy()
+    Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
+
+    repeat
+        RootPart.CFrame = OriginalPosition * CFrame_new(0, 0.5, 0)
+        characterMAIN:SetPrimaryPartCFrame(OriginalPosition * CFrame_new(0, 0.5, 0))
+        Humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+
+        for _, part in pairs(characterMAIN:GetChildren()) do
+            if part:IsA("BasePart") then
+                part.Velocity = Vector3_new()
+                part.RotVelocity = Vector3_new()
+            end
+        end
+        twait()
+    until (RootPart.Position - OriginalPosition.Position).Magnitude < 1
+    isFlinging = false
+end
+
+local function enableClickFling()
+    if clickFlingConnection then return end
+    local localPlayer = Players.LocalPlayer
+    clickFlingConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 and UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+            local mouse = localPlayer:GetMouse()
+            local target = mouse.Target
+            if target then
+                if setsimulationradius then
+                    setsimulationradius(1e9, 1e9)
+                end
+                -- NOTE: this flings with the real character by default.
+                -- If you want to fling with the reanimated char, change `_G.characterMAIN` accordingly.
+                flingTargetWithCharacter(target, _G.characterMAIN)
+            end
+        end
+    end)
+end
+
+local function disableClickFling()
+    if clickFlingConnection then
+        clickFlingConnection:Disconnect()
+        clickFlingConnection = nil
+    end
+end
+
+-- [6] SCROLLING FRAME FOR TOGGLES
+local scrollFrame = Instance.new("ScrollingFrame")
+scrollFrame.Size = UDim2_new(1, -20, 0.6, -10)
+scrollFrame.Position = UDim2_new(0, 10, 0, 60)
+scrollFrame.BackgroundTransparency = 1
+scrollFrame.ScrollBarThickness = 6
+scrollFrame.CanvasSize = UDim2_new(0, 0, 0, 0)
+scrollFrame.ZIndex = 100
+scrollFrame.Parent = mainFrame
+
+local listLayout = Instance.new("UIListLayout")
+listLayout.Padding = UDim_new(0, 10)
+listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+listLayout.Parent = scrollFrame
+
+-- [7] CREATE TOGGLES
+local function createToggle(name, onToggleChanged)
+    local toggleButton = Instance.new("TextButton")
+    toggleButton.Size = UDim2_new(0.95, 0, 0, 40)
+    toggleButton.BackgroundColor3 = Color3_fromRGB(50, 50, 50)
+    toggleButton.Text = name .. ": OFF"
+    toggleButton.TextColor3 = Color3_fromRGB(230, 230, 230)
+    toggleButton.Font = Enum.Font.Gotham
+    toggleButton.TextSize = 16
+    toggleButton.AutoButtonColor = false
+    toggleButton.ZIndex = 200
+    toggleButton.Parent = scrollFrame
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim_new(0, 8)
+    corner.Parent = toggleButton
+
+    local gradient = Instance.new("UIGradient")
+    -- Blue gradient for toggle buttons (idle state)
+    gradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3_fromRGB(130, 130, 255)),
+        ColorSequenceKeypoint.new(1, Color3_fromRGB(100, 100, 255))
+    })
+    gradient.Transparency = NumberSequence.new(0.3)
+    gradient.Parent = toggleButton
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Thickness = 1
+    stroke.Transparency = 0.7
+    stroke.Color = Color3_fromRGB(0, 0, 0)
+    stroke.Parent = toggleButton
+
+    toggleButton.MouseEnter:Connect(function()
+        if not toggleStates[name] then
+            TweenService:Create(gradient, TweenInfo.new(0.3), {Rotation = 180}):Play()
+            TweenService:Create(stroke, TweenInfo.new(0.3), {Transparency = 0.3}):Play()
+        end
+        if toggleDescriptions[name] then
+            showTooltip(toggleDescriptions[name], toggleButton)
+        end
+    end)
+
+    toggleButton.MouseLeave:Connect(function()
+        if not toggleStates[name] then
+            TweenService:Create(gradient, TweenInfo.new(0.3), {Rotation = 0}):Play()
+            TweenService:Create(stroke, TweenInfo.new(0.3), {Transparency = 0.7}):Play()
+        end
+        hideTooltip()
+    end)
+
+    toggleButton.MouseButton1Click:Connect(function()
+        toggleStates[name] = not toggleStates[name]
+        if toggleStates[name] then
+            toggleButton.Text = name .. ": ON"
+            -- Keep toggled ON state green
+            TweenService:Create(toggleButton, TweenInfo.new(0.3), {
+                BackgroundColor3 = Color3_fromRGB(70, 150, 70)
+            }):Play()
+            TweenService:Create(stroke, TweenInfo.new(0.3), {Color = Color3_fromRGB(0, 255, 0)}):Play()
+        else
+            toggleButton.Text = name .. ": OFF"
+            TweenService:Create(toggleButton, TweenInfo.new(0.3), {
+                BackgroundColor3 = Color3_fromRGB(50, 50, 50)
+            }):Play()
+            TweenService:Create(stroke, TweenInfo.new(0.3), {Color = Color3_fromRGB(0, 0, 0)}):Play()
+        end
+
+        if onToggleChanged then
+            onToggleChanged(toggleStates[name])
+        end
+    end)
+end
+
+local toggleNames = {
+    "Metamethod Optimizations",
+    "Permadeath",
+    "Advanced Physics",
+    "Click Kill",
+    "Spoof Full Health",
+    "Tools on fake character",
+    "Allow Sitting",
+    "Click Fling",
+}
+
+for _, name in ipairs(toggleNames) do
+    if name == "Click Kill" then
+        createToggle(name, function(state)
+            if state then
+                enableClickKill()
+            else
+                disableClickKill()
+            end
+        end)
+    elseif name == "Click Fling" then
+        createToggle(name, function(state)
+            if state then
+                enableClickFling()
+            else
+                disableClickFling()
+            end
+        end)
+    else
+        createToggle(name)
+    end
+end
+
+scrollFrame.CanvasSize = UDim2_new(0, 0, 0, #toggleNames * 50 + (#toggleNames - 1) * 10)
+
+-- [8] "RUN SCRIPT" BUTTON
+local runButton = Instance.new("TextButton")
+runButton.Size = UDim2_new(0, 250, 0, 50)
+runButton.Position = UDim2_new(0, 25, 1.05, -100)
+runButton.BackgroundColor3 = Color3_fromRGB(50, 50, 50)
+runButton.Text = "Run Script"
+runButton.TextColor3 = Color3_fromRGB(255, 255, 255)
+runButton.Font = Enum.Font.GothamBold
+runButton.TextSize = 17
+runButton.ZIndex = 2
+runButton.Parent = mainFrame
+
+local runCorner = Instance.new("UICorner")
+runCorner.CornerRadius = UDim_new(0, 8)
+runCorner.Parent = runButton
+
+local runGradient = Instance.new("UIGradient")
+-- Run Button blue gradient
+runGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3_fromRGB(80, 150, 255)),
+    ColorSequenceKeypoint.new(1, Color3_fromRGB(50, 120, 255))
+})
+runGradient.Transparency = NumberSequence.new(0.3)
+runGradient.Parent = runButton
+
+local runStroke = Instance.new("UIStroke")
+runStroke.Thickness = 1
+runStroke.Transparency = 0.7
+runStroke.Color = Color3_fromRGB(0, 0, 0)
+runStroke.Parent = runButton
+
+--------------------------------------------------------------------------------
+-- [9] REANIMATION SCRIPT (UPDATED)
+--------------------------------------------------------------------------------
+local function runReanimateScript()
+    local function isEnabled(tn) return toggleStates[tn] or false end
+
+    local USE_METAMETHOD_OPTIMIZATIONS = isEnabled("Metamethod Optimizations")
+    local permadeathEnabled = isEnabled("Permadeath")
+
+    local character = Players.LocalPlayer.Character or Players.LocalPlayer.CharacterAdded:Wait()
+    local humanoid = character:FindFirstChildOfClass("Humanoid") or character:WaitForChild("Humanoid")
+    local mouse = Players.LocalPlayer:GetMouse()
+    local camera = Workspace.CurrentCamera
+
+    local cf = CFrame_new
+    local angles = CFrame_Angles
+    local rad = math_rad
+    local sin = math_sin
+    local clock = os.clock
+    local v3 = Vector3_new
+    local cfZero = cf(0, 0, 0)
+
+    local insSet, insGet, cfGet, cfMul, cfAdd, v3Get
+    if USE_METAMETHOD_OPTIMIZATIONS then
+        local function getMetamethodFromErrorStack(userdata, fallbackFunc, testFunc)
+            local ret
+            xpcall(fallbackFunc, function()
+                ret = debug.info(2, "f")
+            end, userdata, nil, 0)
+            if (type(ret) ~= "function") or not testFunc(ret) then
+                return fallbackFunc
+            end
+            return ret
+        end
+
+        insSet = getMetamethodFromErrorStack(
+            game,
+            function(a, b, c) a[b] = c end,
+            function(f)
+                local folder = Instance.new("Folder")
+                local randomName = tostring(math.random())
+                f(folder, "Name", randomName)
+                return folder.Name == randomName
+            end
+        )
+
+        insGet = getMetamethodFromErrorStack(
+            game,
+            function(a, b) return a[b] end,
+            function(f)
+                local folder = Instance.new("Folder")
+                local randomName = tostring(math.random())
+                folder.Name = randomName
+                return f(folder, "Name") == randomName
+            end
+        )
+
+        cfGet = getMetamethodFromErrorStack(
+            cfZero,
+            function(a, b) return a[b] end,
+            function(f)
+                return f(cf(1, 2, 3), "Position") == Vector3_new(1, 2, 3)
+            end
+        )
+
+        cfMul = getMetamethodFromErrorStack(
+            cfZero,
+            function(a, b) return a * b end,
+            function(f)
+                local testA = CFrame_Angles(1, 2, 3)
+                local testB = CFrame_Angles(1, 2, 3)
+                return testA * testB == f(testA, testB)
+            end
+        )
+
+        cfAdd = getMetamethodFromErrorStack(
+            cfZero,
+            function(a, b) return a + b end,
+            function(f)
+                local testA = cf(1, 2, 3)
+                local testB = v3(1, 2, 3)
+                return testA + testB == f(testA, testB)
+            end
+        )
+
+        v3Get = getMetamethodFromErrorStack(
+            Vector3_new(),
+            function(a, b) return a[b] end,
+            function(f)
+                local testVec = v3(1, 2, 3)
+                return testVec.Unit == f(testVec, "Unit")
+            end
+        )
+    else
+        insSet = function(self, index, value) self[index] = value end
+        insGet = function(self, index) return self[index] end
+        cfGet  = insGet
+        cfMul  = function(a, b) return a * b end
+        cfAdd  = function(a, b) return a + b end
+        v3Get  = insGet
+    end
+
+    if setsimulationradius then
+        setsimulationradius(1e9, 1e9)
+    end
+
+    character.Archivable = true
+    local fakeRig = character:Clone()
+    fakeRig.Archivable = false
+    fakeRig.Parent = Workspace
+    fakeRig.Name = "fake_Rig"
+
+    local fakeHumanoid = fakeRig:FindFirstChildOfClass("Humanoid")
+    local realRoot     = humanoid.RootPart
+    local fakeRoot     = fakeHumanoid.RootPart
+
+    _G.characterMAIN = realRoot.Parent
+
+    local function configurePart(part)
+        part.CanCollide = false
+        part.CanTouch   = false
+        part.CanQuery   = false
+    end
+
+    local function Animate(part)
+        local limb = fakeRig:FindFirstChild(part.Name)
+        if limb then
+            configurePart(part)
+            part.CFrame = limb.CFrame
+            -- Optional: Add limb-specific animations here.
+        end
+    end
+
+    local function AnimateAccessory(accessory)
+        local handle = accessory:FindFirstChild("Handle")
+        if not handle then return end
+        
+        if handle and 
+            not handle.Anchored
+            and (handle.IsGrounded == nil or not handle:IsGrounded())
+            and #handle:GetConnectedParts() == 1
+            and not handle:IsDescendantOf(character)
+            and not handle:IsDescendantOf(fakeRig)
+            and handle.ReceiveAge == 0 then
+            configurePart(handle)
+
+            for _, att in ipairs(handle:GetChildren()) do
+                if att:IsA("Attachment") then
+                    local targetAttachment = fakeRig:FindFirstChild(att.Name, true)
+                    if targetAttachment and targetAttachment:IsA("Attachment") then
+                        handle.CFrame = targetAttachment.WorldCFrame * att.CFrame:Inverse()
+                    end
+                end
+            end
+        end
+    end
+
+    Players.LocalPlayer.Character = fakeRig
+    camera.CameraSubject = fakeHumanoid
+    
+    local relevantItems = {}
+
+    local function onDescendantAdded(obj)
+        if obj:IsA("Accessory") or (obj:IsA("BasePart") and not obj.Anchored) then
+            if not obj:IsDescendantOf(character) and not obj:IsDescendantOf(fakeRig) then
+                relevantItems[obj] = true
+            end
+        end
+    end
+
+    local function onDescendantRemoving(obj)
+        if relevantItems[obj] then
+            relevantItems[obj] = nil
+        end
+    end
+
+    Workspace.DescendantAdded:Connect(onDescendantAdded)
+    Workspace.DescendantRemoving:Connect(onDescendantRemoving)
+    
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        onDescendantAdded(obj)
+    end
+
+    local heartbeatConnection
+    heartbeatConnection = RunService.Heartbeat:Connect(function()
+        
+        for obj in pairs(relevantItems) do
+            if obj:IsA("Accessory") then
+                AnimateAccessory(obj)
+            elseif obj:IsA("BasePart")
+                and not obj.Anchored
+                and (obj.IsGrounded == nil or not obj:IsGrounded())
+                and #obj:GetConnectedParts() == 1
+                and not obj:IsDescendantOf(character)
+                and not obj:IsDescendantOf(fakeRig)
+                and obj.ReceiveAge == 0 then
+                Animate(obj)
+            end
+        end
+
+        if not isFlinging then
+            realRoot.Velocity    = fakeRoot.Velocity
+            realRoot.RotVelocity = fakeRoot.RotVelocity
+            realRoot.CFrame      = fakeRoot.CFrame * CFrame_new(0, -7, 3)
+        end
+
+        for _, v in ipairs(fakeRig:GetDescendants()) do
+            if v:IsA("BasePart") then
+                configurePart(v)
+            end
+        end
+    end)
+
+    for _, part in ipairs(character:GetDescendants()) do
+        if part:IsA("BasePart") then
+            configurePart(part)
+            part.Transparency = 1
+        elseif part:IsA("Decal") then
+            part.Transparency = 1
+        end
+    end
+
+    for _, part in ipairs(fakeRig:GetDescendants()) do
+        if part:IsA("BasePart") then
+            configurePart(part)
+            part.Transparency = 1
+        elseif part:IsA("Decal") then
+            part.Transparency = 1
+        end
+    end
+
+    if fakeRig:FindFirstChild("Animate") then
+        fakeRig.Animate:Destroy()
+    end
+    local animator = Instance.new("Animator")
+    animator.Parent = fakeHumanoid
+
+    local realAnimateScript = character:FindFirstChild("Animate")
+    if realAnimateScript then
+        local clonedAnimateScript = realAnimateScript:Clone()
+        clonedAnimateScript.Parent = fakeRig
+    end
+
+    if not permadeathEnabled then
+        fakeHumanoid.Died:Once(function()
+            Players.LocalPlayer.Character = character
+            camera.CameraSubject  = humanoid
+
+            realRoot.Velocity = Vector3_new(0,0,0)
+            realRoot.CFrame   = fakeRoot.CFrame
+
+            for _, obj in ipairs(character:GetDescendants()) do
+                if obj:IsA("BasePart") and obj.Name ~= "HumanoidRootPart" then
+                    configurePart(obj)
+                    obj.Transparency = 0
+                elseif obj:IsA("Decal") then
+                    obj.Transparency = 0
+                end
+            end
+
+            fakeRig:Destroy()
+            if heartbeatConnection then
+                heartbeatConnection:Disconnect()
+            end
+        end)
+    end
+end
+
+-- [10] RUN BUTTON FUNCTION
+runButton.MouseButton1Click:Connect(function()
+    runReanimateScript()
+    showNotification("Reanimation started!", 3)
+end)
+
+-- [11] CLOSE BUTTON
+local closeButton = Instance.new("TextButton")
+closeButton.Size = UDim2_new(0, 30, 0, 30)
+closeButton.Position = UDim2_new(1, -40, 0, 10)
+closeButton.BackgroundColor3 = Color3_fromRGB(150, 50, 50)
+closeButton.Text = "X"
+closeButton.TextColor3 = Color3_fromRGB(255, 255, 255)
+closeButton.Font = Enum.Font.GothamBold
+closeButton.TextSize = 13
+closeButton.ZIndex = 2
+closeButton.Parent = mainFrame
+
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim_new(0, 5)
+closeCorner.Parent = closeButton
+
+local closeGradient = Instance.new("UIGradient")
+-- Close button blue gradient
+closeGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3_fromRGB(50, 150, 255)),
+    ColorSequenceKeypoint.new(1, Color3_fromRGB(100, 180, 255))
+})
+closeGradient.Transparency = NumberSequence.new(0.2)
+closeGradient.Parent = closeButton
+
+local closeStroke = Instance.new("UIStroke")
+closeStroke.Thickness = 1
+closeStroke.Transparency = 0.7
+closeStroke.Color = Color3_fromRGB(0, 0, 0)
+closeStroke.Parent = closeButton
+
+closeButton.MouseButton1Click:Connect(function()
+    if toggleStates["Click Kill"] then
+        disableClickKill()
+    end
+    if toggleStates["Click Fling"] then
+        disableClickFling()
+    end
+
+    local tween = TweenService:Create(
+        mainFrame,
+        TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut),
+        {BackgroundTransparency = 1, Position = UDim2_new(mainFrame.Position.X.Scale, mainFrame.Position.X.Offset,
+            mainFrame.Position.Y.Scale, mainFrame.Position.Y.Offset - 50)}
+    )
+    local shadowTween = TweenService:Create(
+        shadow,
+        TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut),
+        {ImageTransparency = 1}
+    )
+
+    local childTweens = {}
+    for _, child in ipairs(mainFrame:GetDescendants()) do
+        if child:IsA("TextLabel") or child:IsA("TextButton") then
+            table.insert(childTweens, TweenService:Create(
+                child,
+                TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut),
+                {TextTransparency = 1}
+            ))
+        elseif child:IsA("UIStroke") then
+            table.insert(childTweens, TweenService:Create(
+                child,
+                TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut),
+                {Transparency = 1}
+            ))
+        elseif child:IsA("ImageLabel") then
+            table.insert(childTweens, TweenService:Create(
+                child,
+                TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut),
+                {ImageTransparency = 1}
+            ))
+        end
+    end
+
+    tween:Play()
+    shadowTween:Play()
+    for _, t in ipairs(childTweens) do
+        t:Play()
+    end
+
+    tween.Completed:Connect(function()
+        if getgenv then
+            getgenv().MrY7zzsReanimateLoaded = false
+        end
+        screenGui:Destroy()
+    end)
+end)
+
+-- [12] DRAGGING FUNCTION
+local function makeDraggable(window, dragHandle)
+    dragHandle = dragHandle or window
+    local isDragging = false
+    local mouseStart, dragStart
+    local renderSteppedConnection
+
+    local function getMouseLocation()
+        return UserInputService:GetMouseLocation()
+    end
+
+    local function stopDrag(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            isDragging = false
+            if renderSteppedConnection then
+                renderSteppedConnection:Disconnect()
+                renderSteppedConnection = nil
+            end
+        end
+    end
+
+    local function updateDrag()
+        if isDragging then
+            local offset = getMouseLocation() - mouseStart
+            window.Position = dragStart + UDim2_new(0, offset.X, 0, offset.Y)
+        end
+    end
+
+    local function beginDrag(input)
+        if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch)
+            and not UserInputService:GetFocusedTextBox() then
+            isDragging = true
+            mouseStart = getMouseLocation()
+            dragStart = window.Position
+
+            if not renderSteppedConnection then
+                renderSteppedConnection = RunService.RenderStepped:Connect(updateDrag)
+            end
+        end
+    end
+
+    dragHandle.InputBegan:Connect(beginDrag)
+    dragHandle.InputEnded:Connect(stopDrag)
+end
+
+makeDraggable(mainFrame)
+
+-- Feature: Keybind to toggle GUI visibility (RightShift)
+local guiVisible = true
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.RightShift then
+         guiVisible = not guiVisible
+         mainFrame.Visible = guiVisible
+    end
+end)
+
+showNotification("MrY7zz's reanimate GUI Loaded!", 3)
