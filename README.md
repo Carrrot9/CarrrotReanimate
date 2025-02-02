@@ -1,4 +1,4 @@
-# MrY7zz reanimate
+# MrY7zz's reanimate
 uses dead npcs to create a fake character in roblox
 
 (I WILL DO A RECODE, BECAUSE THIS USED AI. MY CODE WILL BE CLEANER AND BETTER AND MORE OPTIMIZED WITH BETTER FEATURES AND CONTROL)
